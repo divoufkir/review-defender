@@ -1,4 +1,5 @@
 import { test } from '@japa/runner'
+import { DateTime } from 'luxon'
 import hash from '@adonisjs/core/services/hash'
 import testUtils from '@adonisjs/core/services/test_utils'
 
@@ -52,5 +53,22 @@ test.group('User model | hachage automatique du mot de passe', (group) => {
     const user = await User.create({ email: 'katherine@example.com', password: 'secret-password' })
 
     assert.notProperty(user.serialize(), 'password')
+  })
+
+  test('les timestamps created_at / updated_at sont renseignés automatiquement', async ({
+    assert,
+  }) => {
+    const user = await User.create({ email: 'hedy@example.com', password: 'secret-password' })
+
+    assert.isTrue(DateTime.isDateTime(user.createdAt))
+    assert.isTrue(DateTime.isDateTime(user.updatedAt))
+  })
+
+  test('la colonne email est unique', async ({ assert }) => {
+    await User.create({ email: 'doublon@example.com', password: 'secret-password' })
+
+    await assert.rejects(() =>
+      User.create({ email: 'doublon@example.com', password: 'autre-password' })
+    )
   })
 })
