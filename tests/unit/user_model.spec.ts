@@ -97,3 +97,32 @@ test.group('User model | hachage automatique du mot de passe', (group) => {
     assert.isTrue(await hash.verify(reloaded.password, 'secret-password'))
   })
 })
+
+/**
+ * Couvre le getter `initials`, seul comportement métier ajouté au modèle `User`
+ * en plus du mixin `withAuthFinder`. Il n'accède à aucune table : les instances
+ * sont construites en mémoire, sans transaction ni insertion.
+ */
+test.group('User model | getter initials', () => {
+  test('un nom complet donne l’initiale du prénom et celle du nom', ({ assert }) => {
+    const user = new User()
+    user.fullName = 'Ada Lovelace'
+
+    assert.equal(user.initials, 'AL')
+  })
+
+  test('un nom en un seul mot donne ses deux premières lettres', ({ assert }) => {
+    const user = new User()
+    user.fullName = 'Ada'
+
+    assert.equal(user.initials, 'AD')
+  })
+
+  test('sans nom complet, les initiales sont dérivées de l’email', ({ assert }) => {
+    const user = new User()
+    user.fullName = null
+    user.email = 'ada@example.com'
+
+    assert.equal(user.initials, 'AE')
+  })
+})
