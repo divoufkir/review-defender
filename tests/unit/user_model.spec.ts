@@ -69,4 +69,31 @@ test.group('User model | hachage automatique du mot de passe', (group) => {
   test('findForAuth renvoie null pour un email inconnu', async ({ assert }) => {
     assert.isNull(await User.findForAuth(['email'], 'inconnu@example.com'))
   })
+
+  test('deux utilisateurs avec le même mot de passe ont des hash différents', async ({
+    assert,
+  }) => {
+    const first = await User.create({ email: 'salt-a@example.com', password: 'secret-password' })
+    const second = await User.create({ email: 'salt-b@example.com', password: 'secret-password' })
+
+    // Le hasher utilise un sel aléatoire par enregistrement : un même mot de
+    // passe ne doit jamais produire deux fois le même hash en base.
+    assert.notEqual(first.password, second.password)
+    assert.isTrue(await hash.verify(first.password, 'secret-password'))
+    assert.isTrue(await hash.verify(second.password, 'secret-password'))
+  })
+
+  test('verifyCredentials rejette un email inconnu', async ({ assert }) => {
+    await assert.rejects(() => User.verifyCredentials('inconnu@example.com', 'secret-password'))
+  })
+
+  test('le hash rechargé depuis la base reste vérifiable', async ({ assert }) => {
+    const created = await User.create({
+      email: 'persist@example.com',
+      password: 'secret-password',
+    })
+
+    const reloaded = await User.findOrFail(created.id)
+    assert.isTrue(await hash.verify(reloaded.password, 'secret-password'))
+  })
 })
