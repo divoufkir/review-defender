@@ -1,5 +1,6 @@
 import { test } from '@japa/runner'
 import hash from '@adonisjs/core/services/hash'
+import { DateTime } from 'luxon'
 import testUtils from '@adonisjs/core/services/test_utils'
 
 import User from '#models/user'
@@ -124,5 +125,84 @@ test.group('User model | getter initials', () => {
     user.email = 'ada@example.com'
 
     assert.equal(user.initials, 'AE')
+  })
+})
+
+/**
+ * Couvre les colonnes `created_at` / `updated_at` renseignées automatiquement par
+ * les décorateurs `@column.dateTime({ autoCreate, autoUpdate })`, ainsi que
+ * l'index unique sur `email` vu depuis l'application (la contrainte SQL
+ * elle-même est vérifiée par `users_migration.spec.ts`).
+ */
+test.group('User model | timestamps et unicité de l’email', (group) => {
+  group.each.setup(() => testUtils.db().withGlobalTransaction())
+
+  test('created_at et updated_at sont renseignés à la création', async ({ assert }) => {
+    const user = await User.create({ email: 'tim@example.com', password: 'secret-password' })
+
+    assert.instanceOf(user.createdAt, DateTime)
+    assert.instanceOf(user.updatedAt, DateTime)
+    assert.isTrue(user.createdAt.isValid)
+  })
+
+  test('updated_at avance lors d’une mise à jour, created_at reste figé', async ({ assert }) => {
+    const user = await User.create({ email: 'radia@example.com', password: 'secret-password' })
+    const createdAt = user.createdAt
+    const previousUpdatedAt = user.updatedAt!
+
+    // Lucid horodate à la milliseconde : sans attente, les deux dates seraient
+    // identiques et l'assertion ne prouverait rien.
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    user.fullName = 'Radia P'
+    await user.save()
+
+    assert.isTrue(user.updatedAt! > previousUpdatedAt)
+    assert.equal(user.createdAt.toMillis(), createdAt.toMillis())
+  })
+
+  test('un email déjà pris est rejeté par la base', async ({ assert }) => {
+    await User.create({ email: 'doublon@example.com', password: 'secret-password' })
+
+    await assert.rejects(() =>
+      User.create({ email: 'doublon@example.com', password: 'autre-password' })
+    )
+  })
+})
+
+/**
+ * Le getter `initials` dérive un avatar textuel : à partir du nom complet quand
+ * il est renseigné, sinon à partir de la partie locale de l'email.
+ */
+test.group('User model | getter initials', (group) => {
+  group.each.setup(() => testUtils.db().withGlobalTransaction())
+
+  test('les initiales viennent du nom complet quand il est renseigné', async ({ assert }) => {
+    const user = await User.create({
+      email: 'ada.lovelace@example.com',
+      password: 'secret-password',
+      fullName: 'Ada Lovelace',
+    })
+
+    assert.equal(user.initials, 'AL')
+  })
+
+  test('sans nom complet, les initiales viennent de l’email', async ({ assert }) => {
+    const user = await User.create({ email: 'grace@example.com', password: 'secret-password' })
+
+    // `email.split('@')` renvoie deux parties : le getter prend donc l'initiale
+    // de la partie locale puis celle du domaine (et non les deux premières
+    // lettres de la partie locale).
+    assert.equal(user.initials, 'GE')
+  })
+
+  test('un nom complet en un seul mot donne ses deux premières lettres', async ({ assert }) => {
+    const user = await User.create({
+      email: 'prince@example.com',
+      password: 'secret-password',
+      fullName: 'Prince',
+    })
+
+    assert.equal(user.initials, 'PR')
   })
 })
