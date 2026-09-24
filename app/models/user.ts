@@ -4,24 +4,22 @@ import { compose } from '@adonisjs/core/helpers'
 import { withAuthFinder } from '@adonisjs/auth/mixins/lucid'
 
 /**
- * Modèle `User`.
+ * Mixin d'authentification Lucid.
  *
- * Les colonnes (`id`, `email`, `password`, `createdAt`, `updatedAt`) proviennent de
- * `UserSchema`, généré depuis les migrations par `node ace migration:run`.
+ * `withAuthFinder(hash)` ajoute au modèle :
+ * - un hook `beforeSave` qui hache automatiquement la colonne `password` avec le
+ *   hasher par défaut (scrypt, cf. `config/hash.ts`) dès qu'elle est modifiée ;
+ *   aucun appel manuel à `hash.make()` n'est donc nécessaire ;
+ * - `findForAuth(uids, value)` pour retrouver un utilisateur à la connexion ;
+ * - `verifyCredentials(uid, password)` qui compare le mot de passe en se
+ *   protégeant des attaques temporelles (timing attacks).
  *
- * Hachage automatique des mots de passe :
- * `withAuthFinder(hash)` installe un hook `beforeSave` qui hache la colonne `password`
- * avec le hasher par défaut (scrypt, voir `config/hash.ts`) dès que la valeur est
- * modifiée — à la création comme à la mise à jour. On assigne donc toujours le mot de
- * passe en clair (`user.password = '...'`), jamais un hash calculé à la main, sous peine
- * de double hachage. Le hook est idempotent : sauvegarder un utilisateur sans toucher au
- * mot de passe ne le re-hache pas.
+ * Les options par défaut conviennent ici : `uids: ['email']` et
+ * `passwordColumnName: 'password'`.
  *
- * Le mixin fournit aussi `User.verifyCredentials(email, password)`, qui compare le mot
- * de passe fourni au hash stocké en temps constant.
- *
- * La colonne `password` est annotée `serializeAs: null` dans le schéma : elle n'est jamais
- * exposée dans les réponses JSON.
+ * `UserSchema` est généré depuis la migration par `node ace migration:run` et
+ * porte les colonnes `id`, `email`, `password`, `fullName`, `createdAt`,
+ * `updatedAt`. Ne pas éditer `database/schema.ts` à la main.
  */
 export default class User extends compose(UserSchema, withAuthFinder(hash)) {
   get initials() {

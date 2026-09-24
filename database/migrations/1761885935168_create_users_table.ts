@@ -1,18 +1,17 @@
 import { BaseSchema } from '@adonisjs/lucid/schema'
 
 /**
- * Migration Lucid ORM pour la table `users`.
+ * Table `users` : socle de l'authentification de l'application.
  *
- * Colonnes demandées par la spécification :
+ * Colonnes :
  * - `id`         : clé primaire auto-incrémentée.
- * - `email`      : identifiant de connexion, unique (254 = longueur max d'une adresse RFC 5321).
- * - `password`   : empreinte scrypt produite automatiquement par le modèle `User`
- *                  (mixin `withAuthFinder`), jamais le mot de passe en clair.
- * - `created_at` : rempli automatiquement par `@column.dateTime({ autoCreate: true })`.
- * - `updated_at` : rempli automatiquement par `autoUpdate: true`, nullable car absent
- *                  tant que la ligne n'a pas encore été mise à jour.
- *
- * `full_name` est un champ de profil optionnel, sans impact sur l'authentification.
+ * - `full_name`  : nom affiché, optionnel (l'inscription ne demande que l'email).
+ * - `email`      : identifiant de connexion (uid). Unique et limité à 254 caractères,
+ *                  longueur maximale d'une adresse email selon la RFC 5321.
+ * - `password`   : hash scrypt produit automatiquement par le modèle `User`
+ *                  (mixin `withAuthFinder`). Jamais stocké en clair.
+ * - `created_at` / `updated_at` : renseignés automatiquement par Lucid via les
+ *                  décorateurs `@column.dateTime({ autoCreate, autoUpdate })`.
  */
 export default class extends BaseSchema {
   protected tableName = 'users'

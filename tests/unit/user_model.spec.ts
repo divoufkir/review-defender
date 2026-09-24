@@ -4,36 +4,53 @@ import testUtils from '@adonisjs/core/services/test_utils'
 
 import User from '#models/user'
 
-test.group('User model', (group) => {
+test.group('User model | hachage automatique du mot de passe', (group) => {
   group.each.setup(() => testUtils.db().withGlobalTransaction())
 
-  test('hache automatiquement le mot de passe à la création', async ({ assert }) => {
+  test('le mot de passe est haché à la création', async ({ assert }) => {
     const user = await User.create({
-      email: 'jane@example.com',
+      email: 'ada@example.com',
       password: 'secret-password',
     })
 
     assert.notEqual(user.password, 'secret-password')
+    assert.isTrue(hash.isValidHash(user.password))
     assert.isTrue(await hash.verify(user.password, 'secret-password'))
   })
 
-  test('ne re-hache pas un mot de passe inchangé', async ({ assert }) => {
-    const user = await User.create({
-      email: 'john@example.com',
-      password: 'secret-password',
-    })
+  test('le mot de passe est ré-haché lors d’une mise à jour', async ({ assert }) => {
+    const user = await User.create({ email: 'grace@example.com', password: 'ancien-password' })
+    const previousHash = user.password
 
-    const initialHash = user.password
-    user.fullName = 'John Doe'
+    user.password = 'nouveau-password'
     await user.save()
 
-    assert.equal(user.password, initialHash)
+    assert.notEqual(user.password, previousHash)
+    assert.isTrue(await hash.verify(user.password, 'nouveau-password'))
+  })
+
+  test('sauvegarder sans toucher au mot de passe ne le re-hache pas', async ({ assert }) => {
+    const user = await User.create({ email: 'linus@example.com', password: 'secret-password' })
+    const previousHash = user.password
+
+    user.fullName = 'Linus T'
+    await user.save()
+
+    assert.equal(user.password, previousHash)
   })
 
   test('verifyCredentials retrouve l’utilisateur avec le bon mot de passe', async ({ assert }) => {
-    await User.create({ email: 'ada@example.com', password: 'secret-password' })
+    await User.create({ email: 'alan@example.com', password: 'secret-password' })
 
-    const user = await User.verifyCredentials('ada@example.com', 'secret-password')
-    assert.equal(user.email, 'ada@example.com')
+    const user = await User.verifyCredentials('alan@example.com', 'secret-password')
+    assert.equal(user.email, 'alan@example.com')
+
+    await assert.rejects(() => User.verifyCredentials('alan@example.com', 'mauvais-password'))
+  })
+
+  test('le mot de passe n’est jamais sérialisé', async ({ assert }) => {
+    const user = await User.create({ email: 'katherine@example.com', password: 'secret-password' })
+
+    assert.notProperty(user.serialize(), 'password')
   })
 })
