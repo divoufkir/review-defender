@@ -1,10 +1,14 @@
 import { test } from '@japa/runner'
-import { DateTime } from 'luxon'
 import hash from '@adonisjs/core/services/hash'
 import testUtils from '@adonisjs/core/services/test_utils'
 
 import User from '#models/user'
 
+/**
+ * Vérifie le comportement apporté au modèle `User` par le mixin `withAuthFinder` :
+ * hachage automatique du mot de passe, vérification des identifiants et recherche
+ * par uid. Le schéma de la table est couvert par `users_migration.spec.ts`.
+ */
 test.group('User model | hachage automatique du mot de passe', (group) => {
   group.each.setup(() => testUtils.db().withGlobalTransaction())
 
@@ -55,20 +59,14 @@ test.group('User model | hachage automatique du mot de passe', (group) => {
     assert.notProperty(user.serialize(), 'password')
   })
 
-  test('les timestamps created_at / updated_at sont renseignés automatiquement', async ({
-    assert,
-  }) => {
-    const user = await User.create({ email: 'hedy@example.com', password: 'secret-password' })
+  test('findForAuth retrouve l’utilisateur par son email', async ({ assert }) => {
+    await User.create({ email: 'barbara@example.com', password: 'secret-password' })
 
-    assert.isTrue(DateTime.isDateTime(user.createdAt))
-    assert.isTrue(DateTime.isDateTime(user.updatedAt))
+    const user = await User.findForAuth(['email'], 'barbara@example.com')
+    assert.equal(user?.email, 'barbara@example.com')
   })
 
-  test('la colonne email est unique', async ({ assert }) => {
-    await User.create({ email: 'doublon@example.com', password: 'secret-password' })
-
-    await assert.rejects(() =>
-      User.create({ email: 'doublon@example.com', password: 'autre-password' })
-    )
+  test('findForAuth renvoie null pour un email inconnu', async ({ assert }) => {
+    assert.isNull(await User.findForAuth(['email'], 'inconnu@example.com'))
   })
 })
