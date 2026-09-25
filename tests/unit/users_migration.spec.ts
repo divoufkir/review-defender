@@ -69,4 +69,21 @@ test.group('Migration users | schéma de la table', (group) => {
 
     assert.isTrue(uniqueOnEmail.some((columns) => columns.length === 1 && columns[0] === 'email'))
   })
+
+  test('email est déclaré varchar(254), la limite RFC 5321', async ({ assert }) => {
+    const columns: ColumnInfo[] = await db.rawQuery('PRAGMA table_info(users)')
+    const email = columns.find((column) => column.name === 'email')
+
+    assert.equal(email!.type.toLowerCase(), 'varchar(254)')
+  })
+
+  test('id est une colonne entière et les timestamps sont datés', async ({ assert }) => {
+    const columns: ColumnInfo[] = await db.rawQuery('PRAGMA table_info(users)')
+    const typeOf = (name: string) =>
+      columns.find((column) => column.name === name)!.type.toLowerCase()
+
+    assert.equal(typeOf('id'), 'integer')
+    assert.equal(typeOf('created_at'), 'datetime')
+    assert.equal(typeOf('updated_at'), 'datetime')
+  })
 })
