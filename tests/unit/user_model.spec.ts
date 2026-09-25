@@ -54,6 +54,18 @@ test.group('User model | hachage automatique du mot de passe', (group) => {
     await assert.rejects(() => User.verifyCredentials('alan@example.com', 'mauvais-password'))
   })
 
+  test('merge() déclenche aussi le hachage du mot de passe', async ({ assert }) => {
+    const user = await User.create({ email: 'edsger@example.com', password: 'ancien-password' })
+
+    // Le hook `beforeSave` est posé sur la sauvegarde, pas sur l'affectation :
+    // passer par `merge()` doit donc hacher tout autant que l'assignation directe.
+    user.merge({ password: 'nouveau-password' })
+    await user.save()
+
+    assert.isTrue(hash.isValidHash(user.password))
+    assert.isTrue(await hash.verify(user.password, 'nouveau-password'))
+  })
+
   test('le mot de passe n’est jamais sérialisé', async ({ assert }) => {
     const user = await User.create({ email: 'katherine@example.com', password: 'secret-password' })
 
@@ -126,6 +138,16 @@ test.group('User model | getter initials', () => {
     // La déstructuration `[first, last]` ignore les mots suivants : les
     // initiales restent celles du premier et du deuxième mot.
     assert.equal(user.initials, 'AB')
+  })
+
+  test('un nom complet vide retombe sur l’email', ({ assert }) => {
+    const user = new User()
+    user.fullName = ''
+    user.email = 'ada@example.com'
+
+    // La chaîne vide est falsy : le getter bascule sur l'email au même titre
+    // qu'un `fullName` à `null`.
+    assert.equal(user.initials, 'AE')
   })
 
   test('sans nom complet, les initiales sont dérivées de l’email', ({ assert }) => {
