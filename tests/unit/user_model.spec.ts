@@ -119,6 +119,15 @@ test.group('User model | getter initials', () => {
     assert.equal(user.initials, 'AD')
   })
 
+  test('un nom composé de trois mots ne retient que les deux premiers', ({ assert }) => {
+    const user = new User()
+    user.fullName = 'Ada Byron Lovelace'
+
+    // La déstructuration `[first, last]` ignore les mots suivants : les
+    // initiales restent celles du premier et du deuxième mot.
+    assert.equal(user.initials, 'AB')
+  })
+
   test('sans nom complet, les initiales sont dérivées de l’email', ({ assert }) => {
     const user = new User()
     user.fullName = null
