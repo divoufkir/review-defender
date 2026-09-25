@@ -120,6 +120,25 @@ test.group('User model | hachage automatique du mot de passe', (group) => {
     assert.equal(unknownEmail.message, wrongPassword.message)
   })
 
+  test('un mot de passe unicode et long est haché puis vérifié', async ({ assert }) => {
+    // scrypt travaille sur des octets : un mot de passe multi-octets (accents,
+    // emoji) ne doit ni tronquer ni casser la vérification.
+    const password = `Mot-de-passe-très-lông-🔐-${'x'.repeat(200)}`
+    const user = await User.create({ email: 'unicode@example.com', password })
+
+    assert.isTrue(hash.isValidHash(user.password))
+    assert.isTrue(await hash.verify(user.password, password))
+    assert.isFalse(await hash.verify(user.password, password.slice(0, -1)))
+  })
+
+  test('le hash fraîchement créé n’a pas besoin d’être re-haché', async ({ assert }) => {
+    const user = await User.create({ email: 'rehash@example.com', password: 'secret-password' })
+
+    // `needsReHash` compare les paramètres stockés dans le hash à ceux de
+    // `config/hash.ts` : à la création, ils coïncident forcément.
+    assert.isFalse(hash.needsReHash(user.password))
+  })
+
   test('le hash rechargé depuis la base reste vérifiable', async ({ assert }) => {
     const created = await User.create({
       email: 'persist@example.com',
@@ -167,6 +186,16 @@ test.group('User model | getter initials', () => {
 
     // La chaîne vide est falsy : le getter bascule sur l'email au même titre
     // qu'un `fullName` à `null`.
+    assert.equal(user.initials, 'AE')
+  })
+
+  test('un email dont la partie locale tient en une lettre reste géré', ({ assert }) => {
+    const user = new User()
+    user.fullName = null
+    user.email = 'a@example.com'
+
+    // `charAt(0)` sur une partie locale d'une seule lettre ne lève pas : on
+    // obtient toujours deux caractères (partie locale + domaine).
     assert.equal(user.initials, 'AE')
   })
 
