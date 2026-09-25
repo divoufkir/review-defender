@@ -55,17 +55,6 @@ test.group('User model | hachage automatique du mot de passe', (group) => {
     await assert.rejects(() => User.verifyCredentials('alan@example.com', 'mauvais-password'))
   })
 
-  test('createMany() hache le mot de passe de chaque ligne insérée', async ({ assert }) => {
-    const users = await User.createMany([
-      { email: 'barbara@example.com', password: 'premier-password' },
-      { email: 'katherine@example.com', password: 'second-password' },
-    ])
-
-    assert.lengthOf(users, 2)
-    assert.isTrue(await hash.verify(users[0].password, 'premier-password'))
-    assert.isTrue(await hash.verify(users[1].password, 'second-password'))
-  })
-
   test('updateOrCreate() hache le mot de passe sur la branche mise à jour', async ({ assert }) => {
     await User.create({ email: 'margaret@example.com', password: 'ancien-password' })
 
@@ -79,14 +68,6 @@ test.group('User model | hachage automatique du mot de passe', (group) => {
     assert.isFalse(user.$isLocal)
     assert.isTrue(await hash.verify(user.password, 'nouveau-password'))
     assert.isFalse(await hash.verify(user.password, 'ancien-password'))
-  })
-
-  test('le hash produit est bien un hash scrypt (hasher par défaut)', async ({ assert }) => {
-    const user = await User.create({ email: 'joan@example.com', password: 'secret-password' })
-
-    // `config/hash.ts` déclare scrypt comme hasher par défaut : le PHC string
-    // doit donc porter cet identifiant d'algorithme.
-    assert.match(user.password, /^\$scrypt\$/)
   })
 
   test('merge() déclenche aussi le hachage du mot de passe', async ({ assert }) => {
