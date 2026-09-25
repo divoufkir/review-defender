@@ -174,8 +174,10 @@ test.group('User model | timestamps et unicité de l’email', (group) => {
   test('created_at et updated_at sont renseignés à la création', async ({ assert }) => {
     const user = await User.create({ email: 'tim@example.com', password: 'secret-password' })
 
-    assert.instanceOf(user.createdAt, DateTime)
-    assert.instanceOf(user.updatedAt, DateTime)
+    // `DateTime` a un constructeur privé : `assert.instanceOf` ne l'accepte pas
+    // côté types, on passe donc par le garde fourni par Luxon.
+    assert.isTrue(DateTime.isDateTime(user.createdAt))
+    assert.isTrue(DateTime.isDateTime(user.updatedAt))
     assert.isTrue(user.createdAt.isValid)
   })
 
