@@ -2,6 +2,7 @@ import { test } from '@japa/runner'
 import hash from '@adonisjs/core/services/hash'
 import { DateTime } from 'luxon'
 import testUtils from '@adonisjs/core/services/test_utils'
+import db from '@adonisjs/lucid/services/db'
 
 import User from '#models/user'
 
@@ -137,6 +138,19 @@ test.group('User model | hachage automatique du mot de passe', (group) => {
     // `needsReHash` compare les paramètres stockés dans le hash à ceux de
     // `config/hash.ts` : à la création, ils coïncident forcément.
     assert.isFalse(hash.needsReHash(user.password))
+  })
+
+  test('la ligne en base ne contient jamais le mot de passe en clair', async ({ assert }) => {
+    await User.create({ email: 'raw@example.com', password: 'secret-password' })
+
+    // Les autres assertions lisent `user.password`, c'est-à-dire l'instance
+    // renvoyée par Lucid. On relit ici la colonne en SQL brut pour prouver que
+    // c'est bien le hash, et non le clair, qui a été écrit sur le disque.
+    const row = await db.from('users').where('email', 'raw@example.com').firstOrFail()
+
+    assert.notEqual(row.password, 'secret-password')
+    assert.isTrue(hash.isValidHash(row.password))
+    assert.isTrue(await hash.verify(row.password, 'secret-password'))
   })
 
   test('le hash rechargé depuis la base reste vérifiable', async ({ assert }) => {

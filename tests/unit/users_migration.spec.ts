@@ -103,6 +103,22 @@ test.group('Migration users | schéma de la table', (group) => {
     assert.isAbove(Number(second.id ?? second), Number(first.id ?? first))
   })
 
+  test('la table n’expose aucune colonne inattendue', async ({ assert }) => {
+    const columns: ColumnInfo[] = await db.rawQuery('PRAGMA table_info(users)')
+
+    // Les assertions précédentes vérifient que les colonnes attendues sont
+    // présentes ; celle-ci verrouille l'inverse, pour qu'une colonne ajoutée par
+    // erreur à la migration initiale (au lieu d'une nouvelle migration) échoue.
+    assert.deepEqual(columns.map((column) => column.name).sort(), [
+      'created_at',
+      'email',
+      'full_name',
+      'id',
+      'password',
+      'updated_at',
+    ])
+  })
+
   test('id est une colonne entière et les timestamps sont datés', async ({ assert }) => {
     const columns: ColumnInfo[] = await db.rawQuery('PRAGMA table_info(users)')
     const typeOf = (name: string) =>
