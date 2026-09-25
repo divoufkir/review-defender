@@ -84,8 +84,24 @@ test.group('Migration users | schéma de la table', (group) => {
     const password = columns.find((column) => column.name === 'password')
 
     // La colonne accueille le hash produit par le mixin `withAuthFinder`
-    // (format `#scrypt#...`), jamais le mot de passe en clair.
+    // (format `$scrypt$...`), jamais le mot de passe en clair.
     assert.equal(password!.type.toLowerCase(), 'varchar(255)')
+  })
+
+  test('un email de 254 caractères est accepté tel quel', async ({ assert }) => {
+    // La largeur déclarée doit être utilisable en pratique : on écrit une adresse
+    // à la limite RFC 5321 et on la relit sans troncature.
+    const email = `${'a'.repeat(242)}@example.com`
+    assert.lengthOf(email, 254)
+
+    await db.table('users').insert({
+      email,
+      password: 'hash',
+      created_at: new Date().toISOString(),
+    })
+
+    const row = await db.from('users').where('email', email).firstOrFail()
+    assert.equal(row.email, email)
   })
 
   test('id s’auto-incrémente à chaque insertion', async ({ assert }) => {
