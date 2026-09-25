@@ -153,6 +153,28 @@ test.group('User model | hachage automatique du mot de passe', (group) => {
     assert.isTrue(await hash.verify(row.password, 'secret-password'))
   })
 
+  test('le hash produit utilise le driver scrypt configuré', async ({ assert }) => {
+    const user = await User.create({ email: 'driver@example.com', password: 'secret-password' })
+
+    // `config/hash.ts` déclare scrypt comme hasher par défaut. Le préfixe PHC du
+    // hash le prouve : si le driver par défaut changeait, ce test le signalerait.
+    assert.match(user.password, /^\$scrypt\$/)
+  })
+
+  test('createMany hache le mot de passe de chaque utilisateur', async ({ assert }) => {
+    // `createMany` insère en lot : on vérifie que le hook `beforeSave` du mixin
+    // s'applique bien à chaque ligne, et pas seulement au premier `create`.
+    const users = await User.createMany([
+      { email: 'lot-1@example.com', password: 'password-un' },
+      { email: 'lot-2@example.com', password: 'password-deux' },
+    ])
+
+    assert.lengthOf(users, 2)
+    assert.isTrue(await hash.verify(users[0].password, 'password-un'))
+    assert.isTrue(await hash.verify(users[1].password, 'password-deux'))
+    assert.notEqual(users[0].password, users[1].password)
+  })
+
   test('le hash rechargé depuis la base reste vérifiable', async ({ assert }) => {
     const created = await User.create({
       email: 'persist@example.com',
@@ -266,5 +288,47 @@ test.group('User model | timestamps et unicité de l’email', (group) => {
     await assert.rejects(() =>
       User.create({ email: 'doublon@example.com', password: 'autre-password' })
     )
+  })
+})
+
+/**
+ * Cas limites du couple email / mot de passe : ces scénarios complètent les
+ * groupes ci-dessus en vérifiant que l'ancien mot de passe devient inutilisable
+ * après un changement et qu'un email à la longueur maximale reste exploitable
+ * comme uid de connexion.
+ */
+test.group('User model | cas limites des identifiants', (group) => {
+  group.each.setup(() => testUtils.db().withGlobalTransaction())
+
+  test('après un changement, l’ancien mot de passe est refusé', async ({ assert }) => {
+    const user = await User.create({
+      email: 'rotation@example.com',
+      password: 'ancien-password',
+    })
+
+    user.password = 'nouveau-password'
+    await user.save()
+
+    await assert.rejects(() => User.verifyCredentials('rotation@example.com', 'ancien-password'))
+
+    const verified = await User.verifyCredentials('rotation@example.com', 'nouveau-password')
+    assert.equal(verified.id, user.id)
+  })
+
+  test('la vérification du mot de passe est sensible à la casse', async ({ assert }) => {
+    await User.create({ email: 'casse@example.com', password: 'Secret-Password' })
+
+    await assert.rejects(() => User.verifyCredentials('casse@example.com', 'secret-password'))
+  })
+
+  test('un email de 254 caractères reste un uid valide', async ({ assert }) => {
+    const domain = '@example.com'
+    const email = 'a'.repeat(254 - domain.length) + domain
+    assert.lengthOf(email, 254)
+
+    await User.create({ email, password: 'secret-password' })
+
+    const verified = await User.verifyCredentials(email, 'secret-password')
+    assert.equal(verified.email, email)
   })
 })
