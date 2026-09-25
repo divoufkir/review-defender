@@ -124,6 +124,9 @@ test.group('User model | getter initials', () => {
     user.fullName = null
     user.email = 'ada@example.com'
 
+    // `email.split('@')` renvoie deux parties : le getter prend donc l'initiale
+    // de la partie locale puis celle du domaine (et non les deux premières
+    // lettres de la partie locale).
     assert.equal(user.initials, 'AE')
   })
 })
@@ -167,42 +170,5 @@ test.group('User model | timestamps et unicité de l’email', (group) => {
     await assert.rejects(() =>
       User.create({ email: 'doublon@example.com', password: 'autre-password' })
     )
-  })
-})
-
-/**
- * Le getter `initials` dérive un avatar textuel : à partir du nom complet quand
- * il est renseigné, sinon à partir de la partie locale de l'email.
- */
-test.group('User model | getter initials', (group) => {
-  group.each.setup(() => testUtils.db().withGlobalTransaction())
-
-  test('les initiales viennent du nom complet quand il est renseigné', async ({ assert }) => {
-    const user = await User.create({
-      email: 'ada.lovelace@example.com',
-      password: 'secret-password',
-      fullName: 'Ada Lovelace',
-    })
-
-    assert.equal(user.initials, 'AL')
-  })
-
-  test('sans nom complet, les initiales viennent de l’email', async ({ assert }) => {
-    const user = await User.create({ email: 'grace@example.com', password: 'secret-password' })
-
-    // `email.split('@')` renvoie deux parties : le getter prend donc l'initiale
-    // de la partie locale puis celle du domaine (et non les deux premières
-    // lettres de la partie locale).
-    assert.equal(user.initials, 'GE')
-  })
-
-  test('un nom complet en un seul mot donne ses deux premières lettres', async ({ assert }) => {
-    const user = await User.create({
-      email: 'prince@example.com',
-      password: 'secret-password',
-      fullName: 'Prince',
-    })
-
-    assert.equal(user.initials, 'PR')
   })
 })
