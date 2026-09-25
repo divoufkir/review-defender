@@ -100,6 +100,26 @@ test.group('User model | hachage automatique du mot de passe', (group) => {
     await assert.rejects(() => User.verifyCredentials('inconnu@example.com', 'secret-password'))
   })
 
+  test('email inconnu et mauvais mot de passe échouent de la même façon', async ({ assert }) => {
+    await User.create({ email: 'enumeration@example.com', password: 'secret-password' })
+
+    // Garde anti-énumération : si l'erreur différait selon que l'email existe ou
+    // non, un attaquant pourrait découvrir les comptes enregistrés en comparant
+    // simplement les réponses. Les deux échecs doivent rester indiscernables.
+    const wrongPassword = await User.verifyCredentials(
+      'enumeration@example.com',
+      'mauvais-password'
+    ).catch((error) => error)
+    const unknownEmail = await User.verifyCredentials(
+      'inconnu@example.com',
+      'secret-password'
+    ).catch((error) => error)
+
+    assert.equal(wrongPassword.code, 'E_INVALID_CREDENTIALS')
+    assert.equal(unknownEmail.code, wrongPassword.code)
+    assert.equal(unknownEmail.message, wrongPassword.message)
+  })
+
   test('le hash rechargé depuis la base reste vérifiable', async ({ assert }) => {
     const created = await User.create({
       email: 'persist@example.com',
